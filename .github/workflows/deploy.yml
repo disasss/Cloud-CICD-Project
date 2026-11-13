@@ -1,0 +1,56 @@
+name: Проверка и публикация сайта
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить исходный код
+        uses: actions/checkout@v4
+      - name: Установить Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Проверить наличие файлов
+        run: |
+          test -s index.html
+          test -s style.css
+          test -s script.js
+      - name: Проверить синтаксис JavaScript
+        run: node --check script.js
+      - name: Проверить ссылки на CSS и JavaScript
+        run: |
+          grep -q 'href="style.css"' index.html
+          grep -q 'src="script.js"' index.html
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Получить исходный код
+        uses: actions/checkout@v4
+      - name: Настроить Pages
+        uses: actions/configure-pages@v5
+      - name: Подготовить файлы сайта
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Опубликовать сайт
+        id: deployment
+        uses: actions/deploy-pages@v4
